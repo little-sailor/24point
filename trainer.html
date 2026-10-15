@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f2f4f8">
+<title>24 点训练器</title>
+<style>
+  :root{
+    --bg:#f2f4f8; --card:#fff; --ink:#1b2432; --muted:#68727f;
+    --accent:#2f6bff; --accent-soft:#e8efff; --ok:#188544; --ok-soft:#e3f6ea;
+    --err:#d64545; --line:#dfe3ea;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  [hidden]{display:none!important}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;min-height:100%;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    touch-action:manipulation;user-select:none;-webkit-user-select:none;
+  }
+  button{font-family:inherit;appearance:none;-webkit-appearance:none;color:inherit;touch-action:manipulation}
+  .app{max-width:600px;margin:0 auto;padding:16px 16px 44px}
+
+  .hero{padding:26px 4px 4px;text-align:center}
+  .hero h1{margin:0;font-size:clamp(26px,6vw,34px)}
+  .hero p{color:var(--muted);margin:12px auto 0;max-width:430px;font-size:14px;line-height:1.7}
+  .seg{display:flex;gap:8px;margin:22px 0 8px}
+  .seg button{
+    flex:1;padding:12px 0;font-size:16px;border:1px solid var(--line);
+    background:var(--card);border-radius:12px;cursor:pointer;
+  }
+  .seg button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .desc{text-align:center;color:var(--muted);font-size:13px;min-height:18px;margin:0 0 14px}
+  .best{text-align:center;color:var(--muted);font-size:13px;margin:0 0 18px}
+  .primary{
+    display:block;width:100%;padding:16px 0;font-size:18px;font-weight:600;
+    color:#fff;background:var(--accent);border:0;border-radius:14px;cursor:pointer;
+  }
+  .primary:disabled{opacity:.55}
+  .primary:active{transform:scale(.985)}
+
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+  .progress{font-size:15px;color:var(--muted);flex:1;text-align:center}
+  .timer{
+    font-family:ui-monospace,Consolas,monospace;font-size:26px;font-weight:700;
+    font-variant-numeric:tabular-nums;min-width:86px;text-align:right;
+  }
+  .timer.low{color:var(--err)}
+  .ghost{
+    border:1px solid var(--line);background:var(--card);color:var(--muted);
+    border-radius:10px;padding:9px 13px;font-size:13px;cursor:pointer;
+  }
+  .ghost:active{border-color:var(--accent);color:var(--accent)}
+
+  .tiles{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+  .tiles .tile{flex:1 1 calc(25% - 10px)}
+  .tiles.n2{justify-content:center}
+  .tiles.n2 .tile{flex:0 1 42%}
+  .tiles.n1{justify-content:center}
+  .tiles.n1 .tile{flex:0 1 64%}
+  .tile{
+    min-height:100px;border:2px solid var(--line);border-radius:14px;background:var(--card);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    cursor:pointer;padding:8px 4px;
+  }
+  .tile:active{transform:scale(.97)}
+  .tile .lab{font-size:clamp(18px,4.8vw,27px);font-weight:700;line-height:1.2;word-break:break-all}
+  .tile .lab.sm{font-size:clamp(13px,3.5vw,19px);font-weight:600}
+  .tile .sub{font-size:12px;color:var(--muted)}
+  .tile.sel{border-color:var(--accent);background:var(--accent-soft)}
+  .tile.good{border-color:var(--ok);background:var(--ok-soft)}
+  .tile.shake{animation:shake .45s}
+  @keyframes shake{
+    0%,100%{transform:translateX(0)}
+    20%{transform:translateX(-8px)}
+    40%{transform:translateX(8px)}
+    60%{transform:translateX(-6px)}
+    80%{transform:translateX(6px)}
+  }
+  .ops{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+  .op{
+    height:64px;font-size:30px;font-weight:600;border:1px solid var(--line);
+    background:var(--card);border-radius:14px;cursor:pointer;
+  }
+  .op:active{background:var(--accent-soft);border-color:var(--accent)}
+  .actions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .act{
+    padding:12px 0;font-size:14px;border:1px solid var(--line);
+    background:var(--card);border-radius:12px;cursor:pointer;
+  }
+  .act:active{border-color:var(--accent);color:var(--accent)}
+  .reveal{
+    margin-top:16px;padding:14px;border:1.5px dashed var(--accent);border-radius:14px;
+    background:var(--card);font-size:15px;text-align:center;
+  }
+  .reveal b{font-size:18px;word-break:break-all}
+  .reveal button{margin-top:12px}
+
+  .sum-head{text-align:center;margin:22px 0 6px;font-size:22px}
+  .score{font-size:58px;font-weight:800;text-align:center;line-height:1.1}
+  .score span{font-size:24px;color:var(--muted);font-weight:600}
+  .record{text-align:center;color:var(--muted);font-size:14px;margin:8px 0 20px}
+  .record.new{color:var(--ok);font-weight:700;font-size:16px}
+  .slist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .slist li{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  }
+  .slist .nums{font-weight:700;font-size:16px;letter-spacing:2px}
+  .slist .badge{
+    margin-left:auto;font-size:12px;padding:4px 10px;border-radius:99px;
+    background:#eef1f5;color:var(--muted);white-space:nowrap;
+  }
+  .slist .badge.ok{background:var(--ok-soft);color:var(--ok)}
+  .slist .sol{flex-basis:100%;color:var(--muted);font-size:13px;word-break:break-all}
+  .btnrow{display:flex;gap:10px;margin-top:24px}
+  .btnrow .primary{flex:1.4;padding:15px 0;font-size:16px}
+  .btnrow .ghost{flex:1;padding:15px 0;font-size:15px;border-radius:14px}
+
+  .toast{
+    position:fixed;left:50%;bottom:40px;transform:translateX(-50%);
+    background:rgba(27,36,50,.92);color:#fff;padding:10px 18px;border-radius:12px;
+    font-size:14px;max-width:86vw;text-align:center;opacity:0;pointer-events:none;
+    transition:opacity .25s;z-index:9;
+  }
+  .toast.show{opacity:1}
+  #selftest{
+    position:fixed;left:12px;right:12px;bottom:12px;max-height:60vh;overflow:auto;
+    background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;
+    font-size:13px;z-index:20;box-shadow:0 8px 30px rgba(0,0,0,.14);
+  }
+  #selftest pre{margin:0;white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace}
+</style>
+</head>
+<body>
+<div class="app">
+  <section id="page-start">
+    <div class="hero">
+      <h1>24 点训练器</h1>
+      <p>每轮 10 题, 限时 10 分钟。点选两个数字, 再点一个运算符把它们合并; 用全部 4 个数算出 24 即过关, 中间结果允许分数。</p>
+    </div>
+    <div class="seg" id="diffSeg"></div>
+    <p class="desc" id="diffDesc"></p>
+    <p class="best" id="bestLine"></p>
+    <button class="primary" id="startBtn" disabled>题库加载中…</button>
+  </section>
+
+  <section id="page-play" hidden>
+    <div class="bar">
+      <button class="ghost" id="endBtn">结束</button>
+      <div class="progress" id="progress"></div>
+      <div class="timer" id="timer"></div>
+    </div>
+    <div class="tiles" id="tiles"></div>
+    <div class="ops" id="ops">
+      <button class="op" data-op="+">+</button>
+      <button class="op" data-op="-">−</button>
+      <button class="op" data-op="*">×</button>
+      <button class="op" data-op="/">÷</button>
+    </div>
+    <div class="actions">
+      <button class="act" id="undoBtn">撤销</button>
+      <button class="act" id="clearBtn">清空</button>
+      <button class="act" id="skipBtn">跳过</button>
+      <button class="act" id="revealBtn">看答案</button>
+    </div>
+    <div class="reveal" id="reveal" hidden>
+      参考解法: <b id="revealSol"></b>
+      <div><button class="ghost" id="revealNext">下一题</button></div>
+    </div>
+  </section>
+
+  <section id="page-summary" hidden>
+    <h2 class="sum-head">本局结束</h2>
+    <div class="score" id="score"></div>
+    <div class="record" id="recordLine"></div>
+    <ul class="slist" id="sumList"></ul>
+    <div class="btnrow">
+      <button class="primary" id="againBtn">再来一轮</button>
+      <button class="ghost" id="homeBtn">返回首页</button>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+<div id="selftest" hidden><pre></pre></div>
+
+<script>
+/* ==SOLVER-BEGIN== */
+function gcd(a, b) {
+  a = Math.abs(a); b = Math.abs(b);
+  while (b) { const t = a % b; a = b; b = t; }
+  return a || 1;
+}
+function frac(n, d) {
+  if (d === undefined) d = 1;
+  if (d < 0) { n = -n; d = -d; }
+  const g = gcd(n, d);
+  return { n: n / g, d: d / g };
+}
+function fAdd(a, b) { return frac(a.n * b.d + b.n * a.d, a.d * b.d); }
+function fSub(a, b) { return frac(a.n * b.d - b.n * a.d, a.d * b.d); }
+function fMul(a, b) { return frac(a.n * b.n, a.d * b.d); }
+function fDiv(a, b) { return frac(a.n * b.d, a.d * b.n); }
+const TARGET = { n: 24, d: 1 };
+const PREC = { '+': 1, '-': 1, '*': 2, '/': 2 };
+function isTree(t) { return Array.isArray(t); }
+function flattenTree(t, op) {
+  if (isTree(t) && t[0] === op) return flattenTree(t[1], op).concat(flattenTree(t[2], op));
+  return [t];
+}
+function canon(t) {
+  if (!isTree(t)) return String(t);
+  const op = t[0];
+  if (op === '+' || op === '*') return '(' + flattenTree(t, op).map(canon).sort().join(op) + ')';
+  return '(' + canon(t[1]) + op + canon(t[2]) + ')';
+}
+function fmt(t) {
+  if (!isTree(t)) return String(t);
+  const op = t[0];
+  let ls = fmt(t[1]);
+  let rs = fmt(t[2]);
+  if (isTree(t[1]) && PREC[t[1][0]] < PREC[op]) ls = '(' + ls + ')';
+  if (isTree(t[2]) && (PREC[t[2][0]] < PREC[op] || (PREC[t[2][0]] === PREC[op] && (op === '-' || op === '/')))) rs = '(' + rs + ')';
+  return ls + op + rs;
+}
+function evaluate(t) {
+  if (!isTree(t)) return frac(t);
+  const a = evaluate(t[1]);
+  const b = evaluate(t[2]);
+  if (t[0] === '+') return fAdd(a, b);
+  if (t[0] === '-') return fSub(a, b);
+  if (t[0] === '*') return fMul(a, b);
+  return fDiv(a, b);
+}
+function solveTrees(cards) {
+  const results = new Map();
+  const rec = (values, exprs) => {
+    if (values.length === 1) {
+      if (values[0].n === TARGET.n && values[0].d === TARGET.d) results.set(canon(exprs[0]), exprs[0]);
+      return;
+    }
+    const n = values.length;
+    for (let i = 0; i < n - 1; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const a = values[i], b = values[j], ea = exprs[i], eb = exprs[j];
+        const restV = [], restE = [];
+        for (let k = 0; k < n; k++) {
+          if (k !== i && k !== j) { restV.push(values[k]); restE.push(exprs[k]); }
+        }
+        const cands = [
+          [fAdd(a, b), ['+', ea, eb]],
+          [fMul(a, b), ['*', ea, eb]],
+          [fSub(a, b), ['-', ea, eb]],
+          [fSub(b, a), ['-', eb, ea]]
+        ];
+        if (b.n !== 0) cands.push([fDiv(a, b), ['/', ea, eb]]);
+        if (a.n !== 0) cands.push([fDiv(b, a), ['/', eb, ea]]);
+        for (const c of cands) rec(restV.concat([c[0]]), restE.concat([c[1]]));
+      }
+    }
+  };
+  rec(cards.map(c => frac(c)), cards.slice());
+  return results;
+}
+function solveSorted(cards) {
+  const out = [];
+  solveTrees(cards).forEach(t => out.push(fmt(t)));
+  return out.sort();
+}
+function enumerateAll() {
+  const solvable = [];
+  let unsolvableCount = 0;
+  for (let a = 1; a <= 13; a++) {
+    for (let b = a; b <= 13; b++) {
+      for (let c = b; c <= 13; c++) {
+        for (let d = c; d <= 13; d++) {
+          const cards = [a, b, c, d];
+          const sols = solveSorted(cards);
+          if (sols.length === 0) { unsolvableCount++; continue; }
+          solvable.push({ combo: cards, solutions: sols });
+        }
+      }
+    }
+  }
+  return { solvable, unsolvableCount };
+}
+/* ==SOLVER-END== */
+
+const $ = id => document.getElementById(id);
+const DIFFS = [
+  { key: 'mixed', label: '混合', desc: '全部 1362 种有解组合随机出题' },
+  { key: 'easy', label: '易', desc: '解法不少于 9 种的组合, 适合热身' },
+  { key: 'mid', label: '中', desc: '解法 3 到 8 种的组合' },
+  { key: 'hard', label: '难', desc: '解法不超过 2 种的组合, 烧脑挑战' }
+];
+const LS_BEST = 'kp24.best.';
+const LS_DIFF = 'kp24.diff';
+const ROUND_MS = 10 * 60 * 1000;
+const PROBLEM_COUNT = 10;
+
+const state = {
+  lib: null,
+  difficulty: 'mixed',
+  round: null,
+  tiles: [],
+  history: [],
+  selected: [],
+  busy: false,
+  seq: 0
+};
+
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  return arr;
+}
+function displayOps(s) { return s.replace(/\*/g, '×').replace(/\//g, '÷'); }
+function displayExpr(t) { return displayOps(fmt(t)); }
+let toastTimer = null;
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1600);
+}
+function show(page) {
+  for (const p of ['start', 'play', 'summary']) $('page-' + p).hidden = p !== page;
+}
+
+function buildLib() {
+  const res = enumerateAll();
+  const lib = { mixed: res.solvable, easy: [], mid: [], hard: [], unsolvableCount: res.unsolvableCount };
+  for (const item of res.solvable) {
+    const k = item.solutions.length;
+    (k >= 9 ? lib.easy : k >= 3 ? lib.mid : lib.hard).push(item);
+  }
+  return lib;
+}
+
+function renderSeg() {
+  const seg = $('diffSeg');
+  seg.innerHTML = '';
+  for (const d of DIFFS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = d.label;
+    if (state.difficulty === d.key) b.classList.add('on');
+    b.addEventListener('click', () => {
+      state.difficulty = d.key;
+      lsSet(LS_DIFF, d.key);
+      renderSeg();
+    });
+    seg.appendChild(b);
+  }
+  $('diffDesc').textContent = DIFFS.find(d => d.key === state.difficulty).desc;
+  renderBest();
+}
+function renderBest() {
+  const parts = [];
+  for (const d of DIFFS) {
+    const b = Number(lsGet(LS_BEST + d.key)) || 0;
+    if (b > 0) parts.push(d.label + ' ' + b + '/10');
+  }
+  $('bestLine').textContent = parts.length ? '最佳纪录: ' + parts.join(' · ') : '暂无纪录, 来创造第一个吧';
+}
+
+function startRound() {
+  if (!state.lib) return;
+  const pool = state.lib[state.difficulty];
+  const picked = shuffle(pool.slice()).slice(0, PROBLEM_COUNT);
+  state.round = {
+    id: Date.now(),
+    problems: picked.map(p => ({ combo: p.combo, solutions: p.solutions, status: 'pending', solveMs: null, userExpr: null, startAt: 0 })),
+    idx: 0,
+    endAt: Date.now() + ROUND_MS,
+    timerId: null,
+    over: false
+  };
+  show('play');
+  loadProblem();
+  state.round.timerId = setInterval(tick, 200);
+  tick();
+}
+function cur() { return state.round.problems[state.round.idx]; }
+function snap() { return JSON.stringify(state.tiles); }
+function loadProblem() {
+  const p = cur();
+  state.tiles = p.combo.map((n, i) => ({ id: 't' + i, v: frac(n), t: n }));
+  state.history = [snap()];
+  state.selected = [];
+  state.busy = false;
+  const d = DIFFS.find(x => x.key === state.difficulty);
+  $('progress').textContent = '第 ' + (state.round.idx + 1) + '/' + PROBLEM_COUNT + ' 题 · ' + d.label;
+  $('reveal').hidden = true;
+  $('timer').classList.remove('low');
+  p.startAt = Date.now();
+  renderTiles();
+}
+function renderTiles(extraCls) {
+  const box = $('tiles');
+  box.innerHTML = '';
+  box.className = 'tiles' + (state.tiles.length === 1 ? ' n1' : state.tiles.length === 2 ? ' n2' : '');
+  for (const t of state.tiles) {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'tile' + (state.selected.indexOf(t.id) >= 0 ? ' sel' : '') + (extraCls ? ' ' + extraCls : '');
+    el.dataset.id = t.id;
+    const lab = document.createElement('span');
+    const s = displayExpr(t.t);
+    lab.className = 'lab' + (s.length > 6 ? ' sm' : '');
+    lab.textContent = s;
+    el.appendChild(lab);
+    if (t.v.d !== 1) {
+      const sub = document.createElement('span');
+      sub.className = 'sub';
+      sub.textContent = '= ' + t.v.n + '/' + t.v.d;
+      el.appendChild(sub);
+    }
+    box.appendChild(el);
+  }
+}
+
+function applyOp(op) {
+  const a = state.tiles.find(t => t.id === state.selected[0]);
+  const b = state.tiles.find(t => t.id === state.selected[1]);
+  if (!a || !b) return;
+  let v;
+  if (op === '+') v = fAdd(a.v, b.v);
+  else if (op === '-') v = fSub(a.v, b.v);
+  else if (op === '*') v = fMul(a.v, b.v);
+  else v = fDiv(a.v, b.v);
+  state.history.push(snap());
+  state.seq++;
+  state.tiles = state.tiles.filter(t => t !== a && t !== b).concat([{ id: 'm' + state.seq, v, t: [op, a.t, b.t] }]);
+  state.selected = [];
+  renderTiles();
+  if (state.tiles.length === 1) judge(v);
+}
+function judge(v) {
+  const r = state.round;
+  if (!r || r.over) return;
+  const p = cur();
+  if (v.n === 24 && v.d === 1) {
+    state.busy = true;
+    if (p.status !== 'revealed') {
+      p.status = 'solved';
+      p.solveMs = Date.now() - p.startAt;
+      p.userExpr = displayExpr(state.tiles[0].t);
+    }
+    renderTiles('good');
+    toast('正确!');
+    setTimeout(() => { if (state.round === r && !r.over) nextProblem(); }, 650);
+  } else {
+    state.busy = true;
+    renderTiles('shake');
+    toast('结果不是 24, 帮你撤销了一步');
+    setTimeout(() => {
+      if (state.round !== r || r.over) return;
+      undoOne();
+      state.busy = false;
+      renderTiles();
+    }, 550);
+  }
+}
+function undoOne() {
+  if (state.history.length > 1) state.history.pop();
+  state.tiles = JSON.parse(state.history[state.history.length - 1]);
+  state.selected = [];
+}
+function nextProblem() {
+  const r = state.round;
+  if (!r || r.over) return;
+  r.idx++;
+  if (r.idx >= PROBLEM_COUNT) finishRound();
+  else loadProblem();
+}
+
+function tick() {
+  const r = state.round;
+  if (!r || r.over) return;
+  const left = Math.max(0, r.endAt - Date.now());
+  const s = Math.ceil(left / 1000);
+  const el = $('timer');
+  el.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  el.classList.toggle('low', left <= 60000 && left > 0);
+  if (left <= 0) finishRound();
+}
+function finishRound() {
+  const r = state.round;
+  if (!r || r.over) return;
+  r.over = true;
+  if (r.timerId) clearInterval(r.timerId);
+  for (const p of r.problems) if (p.status === 'pending') p.status = 'unfinished';
+  const score = r.problems.filter(p => p.status === 'solved').length;
+  const diff = DIFFS.find(d => d.key === state.difficulty);
+  const key = LS_BEST + state.difficulty;
+  const prev = Number(lsGet(key)) || 0;
+  const isNew = score > prev;
+  if (isNew) lsSet(key, String(score));
+  $('score').innerHTML = score + '<span> / ' + PROBLEM_COUNT + '</span>';
+  const rl = $('recordLine');
+  rl.textContent = isNew ? '新纪录! (' + diff.label + ')' : '最佳纪录 ' + Math.max(prev, score) + '/10 (' + diff.label + ')';
+  rl.classList.toggle('new', isNew);
+  const list = $('sumList');
+  list.innerHTML = '';
+  r.problems.forEach(p => {
+    const li = document.createElement('li');
+    const nums = document.createElement('span');
+    nums.className = 'nums';
+    nums.textContent = p.combo.join(' ');
+    li.appendChild(nums);
+    const badge = document.createElement('span');
+    let cls = '';
+    let txt = '';
+    if (p.status === 'solved') {
+      cls = 'ok';
+      const sec = (p.solveMs || 0) / 1000;
+      txt = '答对 ' + (sec < 10 ? sec.toFixed(1) : String(Math.round(sec))) + 's';
+    } else if (p.status === 'skipped') txt = '跳过';
+    else if (p.status === 'revealed') txt = '看答案';
+    else txt = '未完成';
+    badge.className = 'badge' + (cls ? ' ' + cls : '');
+    badge.textContent = txt;
+    li.appendChild(badge);
+    const sol = document.createElement('span');
+    sol.className = 'sol';
+    sol.textContent = (p.status === 'solved' ? '你的算式: ' : '参考解法: ') + displayOps(p.status === 'solved' ? p.userExpr : p.solutions[0]);
+    li.appendChild(sol);
+    list.appendChild(li);
+  });
+  show('summary');
+}
+
+function runSelftest() {
+  const out = [];
+  const check = (name, cond) => { out.push((cond ? 'PASS' : 'FAIL') + '  ' + name); return cond; };
+  const lib = state.lib;
+  let ok = true;
+  ok = check('有解组合数 = 1362', lib.mixed.length === 1362) && ok;
+  ok = check('无解组合数 = 458', lib.unsolvableCount === 458) && ok;
+  ok = check('总组合数 = 1820', lib.mixed.length + lib.unsolvableCount === 1820) && ok;
+  ok = check('去重解法总数 = 13456', lib.mixed.reduce((s, x) => s + x.solutions.length, 0) === 13456) && ok;
+  const s3388 = solveSorted([3, 3, 8, 8]);
+  ok = check('3,3,8,8 唯一解 8/(3-8/3)', s3388.length === 1 && s3388[0] === '8/(3-8/3)') && ok;
+  ok = check('1,1,1,1 无解', solveSorted([1, 1, 1, 1]).length === 0) && ok;
+  ok = check('难度桶合计 = 1362', lib.easy.length + lib.mid.length + lib.hard.length === 1362) && ok;
+  let evalOk = true;
+  const sample = lib.mixed.filter((x, i) => i % 7 === 0);
+  for (const item of sample) {
+    solveTrees(item.combo).forEach(t => {
+      const v = evaluate(t);
+      if (!(v.n === 24 && v.d === 1)) evalOk = false;
+    });
+  }
+  ok = check('抽样 ' + sample.length + ' 组合的解全部精确等于 24', evalOk) && ok;
+  const box = $('selftest');
+  box.hidden = false;
+  box.querySelector('pre').textContent = '自检结果 (?selftest=1)\n\n' + out.join('\n') + '\n\n' + (ok ? '全部通过' : '存在失败项');
+  console.log(out.join('\n'));
+}
+
+$('tiles').addEventListener('click', e => {
+  const el = e.target.closest('.tile');
+  if (!el || state.busy) return;
+  const id = el.dataset.id;
+  const i = state.selected.indexOf(id);
+  if (i >= 0) state.selected.splice(i, 1);
+  else {
+    if (state.selected.length === 2) state.selected = [];
+    state.selected.push(id);
+  }
+  renderTiles();
+});
+$('ops').addEventListener('click', e => {
+  const btn = e.target.closest('.op');
+  if (!btn || state.busy) return;
+  $('reveal').hidden = true;
+  if (state.selected.length !== 2) { toast('先点选两个数字'); return; }
+  applyOp(btn.dataset.op);
+});
+$('undoBtn').addEventListener('click', () => {
+  if (state.busy) return;
+  $('reveal').hidden = true;
+  undoOne();
+  renderTiles();
+});
+$('clearBtn').addEventListener('click', () => {
+  if (state.busy) return;
+  $('reveal').hidden = true;
+  state.history = [state.history[0]];
+  state.tiles = JSON.parse(state.history[0]);
+  state.selected = [];
+  renderTiles();
+});
+$('skipBtn').addEventListener('click', () => {
+  if (state.busy) return;
+  const p = cur();
+  if (p.status !== 'revealed') p.status = 'skipped';
+  nextProblem();
+});
+$('revealBtn').addEventListener('click', () => {
+  if (state.busy) return;
+  const p = cur();
+  p.status = 'revealed';
+  $('revealSol').textContent = displayOps(p.solutions[0]);
+  $('reveal').hidden = false;
+});
+$('revealNext').addEventListener('click', () => nextProblem());
+$('endBtn').addEventListener('click', () => {
+  if (state.round && !state.round.over && confirm('确定结束本局?未做的题将计为未完成')) finishRound();
+});
+$('startBtn').addEventListener('click', startRound);
+$('againBtn').addEventListener('click', startRound);
+$('homeBtn').addEventListener('click', () => { show('start'); renderBest(); });
+document.addEventListener('visibilitychange', () => { if (!$('page-play').hidden) tick(); });
+document.addEventListener('touchstart', () => {}, { passive: true });
+
+(function init() {
+  const saved = lsGet(LS_DIFF);
+  if (saved && DIFFS.some(d => d.key === saved)) state.difficulty = saved;
+  renderSeg();
+  setTimeout(() => {
+    state.lib = buildLib();
+    const btn = $('startBtn');
+    btn.disabled = false;
+    btn.textContent = '开始训练';
+    if (/[?&]selftest=1/.test(location.search)) runSelftest();
+  }, 30);
+})();
+</script>
+</body>
+</html>
