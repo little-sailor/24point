@@ -53,6 +53,20 @@
   }
   .ghost:active{border-color:var(--accent);color:var(--accent)}
 
+  .nav{display:flex;align-items:center;gap:10px;margin:0 0 14px}
+  .nav .ghost{flex:0 0 auto;padding:9px 12px}
+  .dots{flex:1;display:flex;justify-content:center;gap:6px}
+  .dot{
+    width:24px;height:24px;border-radius:50%;border:2px solid var(--line);
+    background:var(--card);color:var(--muted);font-size:11px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;
+  }
+  .dot.cur{border-color:var(--accent);background:var(--accent);color:#fff}
+  .dot.solved{border-color:var(--ok);background:var(--ok-soft);color:var(--ok)}
+  .dot.viewed{border-color:#e0a23a;background:#fdf0dd;color:#b9791f}
+  .dot.skipped{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+  .dot.done{cursor:default;opacity:.75}
+
   .tiles{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
   .tiles .tile{flex:1 1 calc(25% - 10px)}
   .tiles.n2{justify-content:center}
@@ -152,6 +166,11 @@
       <button class="ghost" id="endBtn">结束</button>
       <div class="progress" id="progress"></div>
       <div class="timer" id="timer"></div>
+    </div>
+    <div class="nav">
+      <button class="ghost" id="prevBtn">上一题</button>
+      <div class="dots" id="pDots"></div>
+      <button class="ghost" id="nextBtn">下一题</button>
     </div>
     <div class="tiles" id="tiles"></div>
     <div class="ops" id="ops">
@@ -399,10 +418,11 @@ function loadProblem() {
   state.armedOp = null;
   state.busy = false;
   const d = DIFFS.find(x => x.key === state.difficulty);
-  $('progress').textContent = '第 ' + (state.round.idx + 1) + '/' + PROBLEM_COUNT + ' 题 · ' + d.label;
+  $('progress').textContent = '第 ' + (state.round.idx + 1) + '/' + PROBLEM_COUNT + ' 题 · ' + d.label + ' · 剩余 ' + openSorted().length + ' 题';
   $('reveal').hidden = true;
   $('timer').classList.remove('low');
   p.startAt = Date.now();
+  renderDots();
   renderTiles();
 }
 function renderTiles(extraCls) {
@@ -436,6 +456,23 @@ function renderOps() {
   }
 }
 
+function renderDots() {
+  const r = state.round;
+  const box = $('pDots');
+  box.innerHTML = '';
+  for (let i = 0; i < r.problems.length; i++) {
+    const p = r.problems[i];
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'dot' + (i === r.idx ? ' cur' : '') + (p.status === 'solved' ? ' solved' : p.status === 'revealed' ? ' viewed' : p.status === 'skipped' ? ' skipped' : '');
+    if (p.status === 'solved' || p.status === 'revealed') el.classList.add('done');
+    el.textContent = String(i + 1);
+    el.dataset.idx = String(i);
+    el.title = p.combo.join(' ');
+    box.appendChild(el);
+  }
+}
+
 function mergeTiles(op, a, b) {
   let v;
   if (op === '+') v = fAdd(a.v, b.v);
@@ -464,7 +501,7 @@ function judge(v) {
     }
     renderTiles('good');
     toast('正确!');
-    setTimeout(() => { if (state.round === r && !r.over) nextProblem(); }, 650);
+    setTimeout(() => { if (state.round === r && !r.over) advance(); }, 650);
   } else {
     state.busy = true;
     renderTiles('shake');
@@ -483,12 +520,34 @@ function undoOne() {
   state.curId = null;
   state.armedOp = null;
 }
-function nextProblem() {
+function openSorted() {
+  const r = state.round;
+  if (!r) return [];
+  const out = [];
+  for (let i = 0; i < r.problems.length; i++) {
+    const s = r.problems[i].status;
+    if (s === 'pending' || s === 'skipped') out.push(i);
+  }
+  return out;
+}
+function step(dir) {
+  const r = state.round;
+  if (!r || r.over || state.busy) return;
+  const opens = openSorted();
+  if (opens.length === 0) return;
+  const pos = opens.indexOf(r.idx);
+  const n = opens.length;
+  r.idx = opens[((pos + dir) % n + n) % n];
+  loadProblem();
+}
+function advance() {
   const r = state.round;
   if (!r || r.over) return;
-  r.idx++;
-  if (r.idx >= PROBLEM_COUNT) finishRound();
-  else loadProblem();
+  const opens = openSorted();
+  if (opens.length === 0) { finishRound(); return; }
+  const pos = opens.indexOf(r.idx);
+  r.idx = pos >= 0 ? opens[(pos + 1) % opens.length] : opens[0];
+  loadProblem();
 }
 
 function tick() {
@@ -602,6 +661,18 @@ $('ops').addEventListener('click', e => {
   state.armedOp = state.armedOp === btn.dataset.op ? null : btn.dataset.op;
   renderOps();
 });
+$('pDots').addEventListener('click', e => {
+  if (state.busy) return;
+  const el = e.target.closest('.dot');
+  if (!el || el.classList.contains('done')) return;
+  const i = Number(el.dataset.idx);
+  if (i === state.round.idx) return;
+  $('reveal').hidden = true;
+  state.round.idx = i;
+  loadProblem();
+});
+$('prevBtn').addEventListener('click', () => { if (state.busy) return; step(-1); });
+$('nextBtn').addEventListener('click', () => { if (state.busy) return; step(1); });
 $('undoBtn').addEventListener('click', () => {
   if (state.busy) return;
   $('reveal').hidden = true;
@@ -619,9 +690,10 @@ $('clearBtn').addEventListener('click', () => {
 });
 $('skipBtn').addEventListener('click', () => {
   if (state.busy) return;
+  $('reveal').hidden = true;
   const p = cur();
   if (p.status !== 'revealed') p.status = 'skipped';
-  nextProblem();
+  advance();
 });
 $('revealBtn').addEventListener('click', () => {
   if (state.busy) return;
@@ -630,7 +702,7 @@ $('revealBtn').addEventListener('click', () => {
   $('revealSol').textContent = displayOps(p.solutions[0]);
   $('reveal').hidden = false;
 });
-$('revealNext').addEventListener('click', () => nextProblem());
+$('revealNext').addEventListener('click', () => advance());
 $('endBtn').addEventListener('click', () => {
   if (state.round && !state.round.over && confirm('确定结束本局?未做的题将计为未完成')) finishRound();
 });
